@@ -12,10 +12,12 @@
     .card{background:#0f1630;border:1px solid #1f2a44;border-radius:16px;padding:16px}
     label{display:block;font-size:14px;color:var(--muted);margin-bottom:6px}
     input,button{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #2a375a;background:#0e1733;color:var(--fg)}
+    input::placeholder{color:#64748b}
     .row{display:grid;grid-template-columns:1fr;gap:12px}
     .note{color:var(--muted);font-size:13px}
     .ok{color:#9ff9b1}
     .err{color:#ff9aa2}
+    .hidden{display:none}
   </style>
 </head>
 <body>
@@ -26,81 +28,133 @@
     </header>
 
     <section class="card">
-      <div class="row">
+      <form id="form" class="row" novalidate>
         <div>
           <label for="date">날짜</label>
-          <input type="date" id="date" required max="2025-08-20" />
+          <input type="date" id="date" name="date" required />
         </div>
 
         <div>
           <label for="count">당일 입장 인원(일일 증가분)</label>
-          <input type="number" id="count" inputmode="numeric" required min="1" placeholder="예: 1032" />
+          <input type="number" id="count" name="count" inputmode="numeric" step="1" min="1" required placeholder="예: 1032"/>
         </div>
 
         <div>
-          <button id="submit">제출</button>
+          <button id="submit" type="submit" aria-live="polite">제출</button>
         </div>
 
         <div>
-          <span id="status" class="note">대기 중</span>
+          <span id="status" class="note" aria-live="polite" role="status">대기 중</span>
         </div>
-      </div>
+      </form>
     </section>
   </div>
 
 <script>
+// ===== 설정 =====
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzhvDQtWL5S1WreuhPJiw7ODnv0KamWZHGVHBU0gsHInGkgPmBMpBQLv4J55q4CDT6qTQ/exec";
+const KST_TZ = 'Asia/Seoul';
 
+// ===== 유틸 =====
 const $ = (s)=>document.querySelector(s);
+const $$ = (s)=>document.querySelectorAll(s);
 const statusEl = $('#status');
 const btn = $('#submit');
+const form = $('#form');
 
 function setStatus(msg, cls='note'){ statusEl.textContent = msg; statusEl.className = cls; }
 
-function validate(date, count){
+function kstToday(){
+  // KST 기준 YYYY-MM-DD
+  const now = new Date(new Date().toLocaleString('en-CA',{timeZone:KST_TZ}));
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,'0');
+  const d = String(now.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+
+function sanitizeInt(v){
+  const s = String(v).replace(/[,\s]/g,'');
+  const n = Number(s);
+  return Number.isFinite(n) ? Math.floor(n) : NaN;
+}
+
+function validate(date, count, maxDate){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '날짜 형식 오류';
-  if(date > $('#date').max) return '미래 일자 불가';
-  const n = Number(count);
+  if(date > maxDate) return '미래 일자 불가';
+  const n = sanitizeInt(count);
   if(!Number.isFinite(n) || n < 1) return '인원은 1 이상';
   return null;
 }
 
-async function submit(){
+function setMaxDateToday(){
+  const today = kstToday();
+  const dateEl = $('#date');
+  dateEl.max = today;
+  if(!dateEl.value) dateEl.valueAsDate = new Date(today);
+}
+
+function disableForm(disabled){
+  for(const el of $$('#form input, #form button')) el.disabled = disabled;
+}
+
+async function submit(e){
+  e?.preventDefault();
   if(btn.disabled) return;
-  const date = $('#date').value;
-  const count = $('#count').value;
-  const err = validate(date, count);
-  if(err) return setStatus(err, 'note err');
+
+  const dateEl = $('#date');
+  const countEl = $('#count');
+  const date = dateEl.value;
+  const count = countEl.value;
+  const err = validate(date, count, dateEl.max);
+  if(err) { setStatus(err, 'note err'); return; }
 
   try{
-    btn.disabled = true;
+    disableForm(true);
     setStatus('전송 중…');
+
+    // 타임아웃 12초
+    const ac = new AbortController();
+    const t = setTimeout(()=>ac.abort('timeout'), 12000);
 
     const payload = new URLSearchParams();
     payload.set('date', date);
-    payload.set('count', String(Number(count)));
+    payload.set('count', String(sanitizeInt(count)));
 
-    const res = await fetch(SCRIPT_URL, { method:'POST', body: payload });
-    const t = await res.text();
+    // 오프라인 방지
+    if(typeof navigator !== 'undefined' && navigator.onLine === false){
+      throw new Error('오프라인 상태');
+    }
+
+    const res = await fetch(SCRIPT_URL, { method:'POST', body: payload, signal: ac.signal });
+    clearTimeout(t);
+    const text = await res.text();
+
     let ok = false;
-    try{ ok = res.ok && JSON.parse(t).status === 'ok'; }
-    catch(_){ ok = res.ok && t.trim().toLowerCase() === 'ok'; }
+    try { ok = res.ok && JSON.parse(text).status === 'ok'; }
+    catch(_) { ok = res.ok && text.trim().toLowerCase() === 'ok'; }
 
-    if(ok){ 
-      // 저장 완료 시 index.html로 이동
+    if(ok){
       setStatus('저장 완료. 이동합니다…', 'note ok');
-      setTimeout(() => { window.location.href = 'index.html'; }, 300);
+      setTimeout(()=>{ window.location.href = 'index.html'; }, 300);
     } else {
-      throw new Error(t || '서버 오류');
+      throw new Error(text || '서버 오류');
     }
   } catch(e){
-    setStatus('오류: '+ e.message, 'note err');
+    const msg = e?.name === 'AbortError' ? '요청 시간 초과' : (e?.message || '알 수 없는 오류');
+    setStatus('오류: ' + msg, 'note err');
   } finally {
-    btn.disabled = false;
+    disableForm(false);
   }
 }
 
+// 초기화
+setMaxDateToday();
+form.addEventListener('submit', submit);
 btn.addEventListener('click', submit);
+
+// 빠른 입력 편의: 숫자 입력에서 Enter 시 제출
+$('#count').addEventListener('keydown', (ev)=>{ if(ev.key==='Enter'){ submit(ev); }});
 </script>
 </body>
 </html>
