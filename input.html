@@ -1,0 +1,111 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>누적인원 입력 (관리자)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans KR', Arial, sans-serif; margin: 24px; }
+    h1 { font-size: 1.4rem; margin: 0 0 12px; }
+    form { display:grid; gap:12px; max-width: 420px; }
+    label { font-weight:600; }
+    input[type="date"], input[type="number"], input[type="password"] { padding:10px; border:1px solid #ddd; border-radius:10px; width:100%; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .btn { padding: 10px 14px; border:0; border-radius:10px; background:#111; color:#fff; cursor:pointer; }
+    .btn.secondary { background:#f5f5f5; color:#111; border:1px solid #ddd; text-decoration:none; display:inline-block; }
+    .muted { color:#777; font-size:0.9rem; }
+    #formArea { display:none; margin-top:20px; }
+  </style>
+</head>
+<body>
+  <h1>누적인원 입력 (관리자 전용)</h1>
+
+  <div id="loginArea">
+    <label for="pw">비밀번호</label>
+    <input id="pw" type="password" placeholder="비밀번호" />
+    <button class="btn" id="pwBtn">확인</button>
+    <p class="muted">※ 접근 제한됨. 올바른 비밀번호를 입력해야 합니다.</p>
+  </div>
+
+  <div id="formArea">
+    <form id="f">
+      <div>
+        <label for="date">날짜</label>
+        <input id="date" name="date" type="date" required />
+      </div>
+      <div>
+        <label for="count">인원</label>
+        <input id="count" name="count" type="number" inputmode="numeric" min="1" step="1" placeholder="예: 1234" required />
+        <div class="muted">음수, 소수 입력 불가. 같은 날짜는 시트에 행으로 추가됩니다.</div>
+      </div>
+      <div class="row">
+        <button class="btn" type="submit" id="submitBtn">입력</button>
+        <a class="btn secondary" href="index.html">현황 보기</a>
+      </div>
+      <p class="muted" id="hint">저장 후 index 페이지에서 자동 합산되어 표시됩니다.</p>
+    </form>
+  </div>
+
+<script>
+const PASSWORD = "6208";
+// 아래 URL을 Apps Script 웹앱 배포 URL로 교체하세요.
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzvWLVomxt9Cr5fBQXjZ4hejdtrP8ZGVX7nmIULL6PrK_VS_eteLDYcie4-m_NKzjzeZQ/exec";
+
+document.getElementById('pwBtn').addEventListener('click', () => {
+  const val = document.getElementById('pw').value.trim();
+  if (val === PASSWORD) {
+    document.getElementById('loginArea').style.display = 'none';
+    document.getElementById('formArea').style.display = 'block';
+  } else {
+    alert('비밀번호가 올바르지 않습니다.');
+  }
+});
+
+function sanitizeInt(val) {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return null;
+  if (n <= 0) return null;
+  if (!Number.isInteger(n)) return Math.round(n);
+  return n;
+}
+
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '전송 중...';
+
+  const date = document.getElementById('date').value;
+  const raw = document.getElementById('count').value;
+  const count = sanitizeInt(raw);
+  if (!date || !/\d{4}-\d{2}-\d{2}/.test(date)) {
+    alert('날짜를 선택하세요');
+    btn.disabled = false; btn.textContent = '입력';
+    return;
+  }
+  if (count === null) {
+    alert('인원을 올바르게 입력하세요');
+    btn.disabled = false; btn.textContent = '입력';
+    return;
+  }
+
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, count })
+    });
+    if (!res.ok) throw new Error('저장 실패 ' + res.status);
+    const text = await res.text();
+    alert('입력 완료');
+    location.href = 'index.html';
+  } catch (err) {
+    alert('저장 오류: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '입력';
+  }
+});
+</script>
+</body>
+</html>
