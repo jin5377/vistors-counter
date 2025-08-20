@@ -1,65 +1,106 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>누적인원 입력</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>일일 증가분 입력</title>
   <style>
-    body{background:#0b1020;color:#e8ecf1;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Apple SD Gothic Neo,Noto Sans KR,sans-serif;margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100vh}
-    .card{background:#0f1630;border:1px solid #1f2a44;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 4px 12px rgba(0,0,0,.4)}
-    h1{margin-top:0;font-size:20px}
-    label{display:block;margin-top:14px;font-size:14px;color:#9aa6b2}
-    input{width:100%;padding:10px;margin-top:6px;border:1px solid #2a375a;border-radius:10px;background:#0e1733;color:#fff;box-sizing:border-box}
-    button{margin-top:18px;padding:12px;width:100%;background:#3aa3ff;border:none;border-radius:10px;color:#fff;font-weight:600;cursor:pointer}
-    button:active{transform:translateY(1px)}
-    .note{margin-top:12px;font-size:13px;color:#9aa6b2}
-    .msg{margin-top:10px;font-size:14px}
-    .ok{color:#7ed3ff}
+    :root { --bg:#0b1020; --fg:#e8ecf1; --muted:#9aa6b2; --accent:#3aa3ff; }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Apple SD Gothic Neo,Noto Sans KR,sans-serif}
+    .wrap{max-width:640px;margin:0 auto;padding:28px 16px;display:grid;gap:16px}
+    h1{font-size:clamp(20px,3.5vw,28px);margin:0 0 8px}
+    .card{background:#0f1630;border:1px solid #1f2a44;border-radius:16px;padding:16px}
+    label{display:block;font-size:14px;color:var(--muted);margin-bottom:6px}
+    input,button{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #2a375a;background:#0e1733;color:var(--fg)}
+    .row{display:grid;grid-template-columns:1fr;gap:12px}
+    .note{color:var(--muted);font-size:13px}
+    .ok{color:#9ff9b1}
     .err{color:#ff9aa2}
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>누적인원 입력</h1>
-    <form id="f">
-      <label>날짜(YYYY-MM-DD)<br/>
-        <input type="date" name="date" required/>
-      </label>
-      <label>누적인원<br/>
-        <input type="number" name="count" min="1" required/>
-      </label>
-      <button type="submit">제출</button>
-    </form>
-    <p class="note">같은 날짜 입력 시 마지막 값으로 반영됩니다 (Last Write Wins).</p>
-    <div id="msg" class="msg"></div>
+  <div class="wrap">
+    <header>
+      <h1>국립대구과학관 800만 · 입력</h1>
+      <p class="note">입력 단위: <strong>당일 입장 인원(일일 증가분)</strong>. 같은 날짜 입력은 마지막 값으로 반영됩니다(LWW).</p>
+    </header>
+
+    <section class="card">
+      <div class="row">
+        <div>
+          <label for="date">날짜</label>
+          <input type="date" id="date" required max="2025-08-20" />
+        </div>
+
+        <div>
+          <label for="count">당일 입장 인원(일일 증가분)</label>
+          <input type="number" id="count" inputmode="numeric" required min="1" max="200000" placeholder="예: 1032" />
+          <p class="note">허용 범위: 1~200,000</p>
+        </div>
+
+        <div>
+          <button id="submit">제출</button>
+        </div>
+
+        <div>
+          <span id="status" class="note">대기 중</span>
+        </div>
+      </div>
+    </section>
   </div>
 
 <script>
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMloL2qndO_Bv6edp1V4Tfsna_lV_ur0cOJOUgHNNFltgFKOyVKZRajZmPVnoFojI-QQ/exec";
 
-document.getElementById('f').addEventListener('submit', async e=>{
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  const params = new URLSearchParams(fd);
-  const msg = document.getElementById('msg');
-  msg.textContent = '전송 중…';
-  msg.className = 'msg';
-  try {
-    const res = await fetch(SCRIPT_URL, {method:'POST', body:params});
-    const txt = await res.text();
-    if (res.ok && txt.trim()==='ok') {
-      msg.textContent = '저장 성공';
-      msg.className = 'msg ok';
-      e.target.reset();
+const $ = (s)=>document.querySelector(s);
+const statusEl = $('#status');
+const btn = $('#submit');
+
+function setStatus(msg, cls='note'){ statusEl.textContent = msg; statusEl.className = cls; }
+
+function validate(date, count){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '날짜 형식 오류';
+  if(date > $('#date').max) return '미래 일자 불가';
+  const n = Number(count);
+  if(!Number.isFinite(n) || n<1 || n>200000) return '인원은 1~200,000';
+  return null;
+}
+
+async function submit(){
+  if(btn.disabled) return;
+  const date = $('#date').value;
+  const count = $('#count').value;
+  const err = validate(date, count);
+  if(err) return setStatus(err, 'note err');
+
+  try{
+    btn.disabled = true;
+    setStatus('전송 중…');
+
+    const payload = new URLSearchParams();
+    payload.set('date', date);
+    payload.set('count', String(Number(count)));
+
+    const res = await fetch(SCRIPT_URL, { method:'POST', body: payload });
+    const t = await res.text();
+    let ok = false;
+    try{ ok = res.ok && JSON.parse(t).status === 'ok'; }
+    catch(_){ ok = res.ok && t.trim().toLowerCase() === 'ok'; }
+
+    if(ok){ 
+      setStatus('저장 완료', 'note ok');
+      $('#count').value='';
     } else {
-      msg.textContent = '실패: ' + txt;
-      msg.className = 'msg err';
+      throw new Error(t || '서버 오류');
     }
-  } catch(err){
-    msg.textContent = '에러: ' + err.message;
-    msg.className = 'msg err';
+  } catch(e){
+    setStatus('오류: '+ e.message, 'note err');
+  } finally {
+    btn.disabled = false;
   }
-});
+}
+
+btn.addEventListener('click', submit);
 </script>
 </body>
 </html>

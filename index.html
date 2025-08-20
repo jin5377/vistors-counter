@@ -18,14 +18,12 @@
     .note{color:var(--muted);font-size:14px}
     .footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:13px}
     .error{color:#ff9aa2}
-    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .btn{padding:8px 12px;border:1px solid #2a375a;border-radius:10px;background:#0e1733;color:var(--fg);cursor:pointer;text-decoration:none}
-    .btn:active{transform:translateY(1px)}
     table{width:100%;border-collapse:collapse;font-size:14px}
     th,td{padding:10px;border-bottom:1px solid #1f2a44;text-align:left}
     thead th{color:var(--muted);font-weight:600}
     tfoot td{font-weight:700}
-    .right{justify-content:flex-end}
+    .right{justify-content:flex-end; display:flex}
+    .btn{padding:8px 12px;border:1px solid #2a375a;border-radius:10px;background:#0e1733;color:var(--fg);cursor:pointer;text-decoration:none}
   </style>
 </head>
 <body>
@@ -37,7 +35,7 @@
 
     <section class="kpis" aria-label="누적 및 목표 현황">
       <div class="card" role="group" aria-labelledby="k1l">
-        <div class="label" id="k1l">오늘 기준 누적</div>
+        <div class="label" id="k1l">오늘 기준 누적(일일 증가분 합산)</div>
         <div class="value" id="cum">-</div>
       </div>
       <div class="card" role="group" aria-labelledby="k2l">
@@ -60,10 +58,10 @@
     </section>
 
     <section class="card">
-      <div class="row" style="justify-content:space-between">
-        <strong>일자별 입력 내역</strong>
-        <span class="note" id="rowsInfo">-</span>
+      <div class="right">
+        <a class="btn" href="input.html">일일 증가분 입력</a>
       </div>
+      <strong>일자별 입력 내역</strong>
       <table id="tbl">
         <thead>
           <tr><th>날짜</th><th>입력 인원</th></tr>
@@ -73,25 +71,21 @@
           <tr><td>합계</td><td id="sumCell">0</td></tr>
         </tfoot>
       </table>
-      <div class="row right" style="margin-top:10px">
-        <a class="btn" href="input.html">누적인원 입력</a>
-      </div>
+      <p class="note" id="rowsInfo">-</p>
     </section>
 
     <footer class="footer">
-      <div>입력은 <code>input.html</code>(관리자 전용)에서 수행. 같은 날짜는 마지막 입력값으로 반영(LWW).</div>
+      <div>입력은 <code>input.html</code>(관리자 전용)에서 수행. 같은 날짜는 <strong>마지막 값</strong>으로 반영(LWW).</div>
       <div id="lastUpdated">-</div>
     </footer>
   </div>
 
 <script>
 const TARGET = 8000000;
-// 본인 웹앱 URL로 교체 가능. 아래는 사용자가 제공한 URL.
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMloL2qndO_Bv6edp1V4Tfsna_lV_ur0cOJOUgHNNFltgFKOyVKZRajZmPVnoFojI-QQ/exec";
 
 function fmt(n){ return Number(n||0).toLocaleString('ko-KR'); }
 
-// 안정화: text()로 받고 JSON.parse
 async function fetchSheet() {
   const res = await fetch(SCRIPT_URL + "?t=" + Date.now(), { method:'GET' });
   if (!res.ok) throw new Error('시트 요청 실패 ' + res.status);
@@ -109,10 +103,10 @@ function normalizeRows(arr){
     .filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r.date) && Number.isFinite(r.count) && r.count>0);
 }
 
-// LWW: 같은 날짜는 마지막 값으로 대체
+// 같은 날짜는 마지막 값으로 대체(LWW)
 function aggregateByDate(rows){
   const map = new Map();
-  for (const r of rows) map.set(r.date, r.count); // overwrite keeps last
+  for (const r of rows) map.set(r.date, r.count);
   return Array.from(map.entries()).sort((a,b) => a[0].localeCompare(b[0]));
 }
 
@@ -130,16 +124,14 @@ async function draw(){
     document.getElementById('remain').textContent = fmt(remain) + ' 명';
     document.getElementById('rate').textContent = rate.toFixed(2) + '%';
     document.getElementById('fill').style.width = rate + '%';
-    document.getElementById('asof').textContent = '데이터 소스: Google Sheets (마지막 값 기준)';
+    document.getElementById('asof').textContent = '기준: 일일 증가분 합산';
 
     // 표
     const tbody = document.querySelector('#tbl tbody');
     tbody.innerHTML = '';
     for (const [date, cnt] of lastAgg){
       const tr = document.createElement('tr');
-      const td1 = document.createElement('td'); td1.textContent = date;
-      const td2 = document.createElement('td'); td2.textContent = fmt(cnt);
-      tr.appendChild(td1); tr.appendChild(td2);
+      tr.innerHTML = `<td>${{date}}</td><td>${{fmt(cnt)}}</td>`;
       tbody.appendChild(tr);
     }
 
