@@ -49,55 +49,30 @@
 
 <script>
 const PASSWORD = "6208";
-// 아래 URL을 Apps Script 웹앱 배포 URL로 교체하세요.
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyHrJramIkoLEmNjelF--37M6p7KZUIXG-9-tbbT3gcS8ZbrI7b0XYlM0WJn8HKyTyCfg/exec";
+const SCRIPT_URL = "YOUR_WEBAPP_URL/exec";
 
 document.getElementById('pwBtn').addEventListener('click', () => {
-  const val = document.getElementById('pw').value.trim();
-  if (val === PASSWORD) {
+  if (document.getElementById('pw').value.trim() === PASSWORD) {
     document.getElementById('loginArea').style.display = 'none';
     document.getElementById('formArea').style.display = 'block';
-  } else {
-    alert('비밀번호가 올바르지 않습니다.');
-  }
+  } else { alert('비밀번호가 올바르지 않습니다.'); }
 });
 
-function sanitizeInt(val) {
-  const n = Number(val);
-  if (!Number.isFinite(n)) return null;
-  if (n <= 0) return null;
-  if (!Number.isInteger(n)) return Math.round(n);
-  return n;
-}
+function sanitizeInt(v){const n=Number(v);return Number.isFinite(n)&&n>0?Math.round(n):null;}
 
 document.getElementById('f').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = document.getElementById('submitBtn');
-  btn.disabled = true;
-  btn.textContent = '전송 중...';
+  btn.disabled = true; btn.textContent = '전송 중...';
 
   const date = document.getElementById('date').value;
-  const raw = document.getElementById('count').value;
-  const count = sanitizeInt(raw);
-  if (!date || !/\d{4}-\d{2}-\d{2}/.test(date)) {
-    alert('날짜를 선택하세요');
-    btn.disabled = false; btn.textContent = '입력';
-    return;
-  }
-  if (count === null) {
-    alert('인원을 올바르게 입력하세요');
-    btn.disabled = false; btn.textContent = '입력';
-    return;
-  }
+  const count = sanitizeInt(document.getElementById('count').value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || count===null) { alert('입력 확인'); btn.disabled=false; btn.textContent='입력'; return; }
 
   try {
-    const res = await fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, count })
-    });
-    if (!res.ok) throw new Error('저장 실패 ' + res.status);
-    const text = await res.text();
+    const body = new URLSearchParams({ date, count: String(count) });
+    const res = await fetch(SCRIPT_URL + '?t=' + Date.now(), { method: 'POST', body }); // 헤더 지정하지 않음
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     alert('입력 완료');
     location.href = 'index.html';
   } catch (err) {
@@ -106,6 +81,7 @@ document.getElementById('f').addEventListener('submit', async (e) => {
     btn.disabled = false; btn.textContent = '입력';
   }
 });
+
 </script>
 </body>
 </html>
