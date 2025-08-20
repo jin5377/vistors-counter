@@ -34,8 +34,7 @@
 
         <div>
           <label for="count">당일 입장 인원(일일 증가분)</label>
-          <input type="number" id="count" inputmode="numeric" required min="1" max="200000" placeholder="예: 1032" />
-          <p class="note">허용 범위: 1~200,000</p>
+          <input type="number" id="count" inputmode="numeric" required min="1" placeholder="예: 1032" />
         </div>
 
         <div>
@@ -50,7 +49,7 @@
   </div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzhvDQtWL5S1WreuhPJiw7ODnv0KamWZHGVHBU0gsHInGkgPmBMpBQLv4J55q4CDT6qTQ/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwMloL2qndO_Bv6edp1V4Tfsna_lV_ur0cOJOUgHNNFltgFKOyVKZRajZmPVnoFojI-QQ/exec";
 
 const $ = (s)=>document.querySelector(s);
 const statusEl = $('#status');
@@ -62,7 +61,7 @@ function validate(date, count){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '날짜 형식 오류';
   if(date > $('#date').max) return '미래 일자 불가';
   const n = Number(count);
-  if(!Number.isFinite(n) || n<1 || n>200000) return '인원은 1~200,000';
+  if(!Number.isFinite(n) || n < 1) return '인원은 1 이상';
   return null;
 }
 
@@ -88,8 +87,9 @@ async function submit(){
     catch(_){ ok = res.ok && t.trim().toLowerCase() === 'ok'; }
 
     if(ok){ 
-      setStatus('저장 완료', 'note ok');
-      $('#count').value='';
+      // 저장 완료 시 index.html로 이동
+      setStatus('저장 완료. 이동합니다…', 'note ok');
+      setTimeout(() => { window.location.href = 'index.html'; }, 300);
     } else {
       throw new Error(t || '서버 오류');
     }
