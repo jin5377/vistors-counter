@@ -1,91 +1,63 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>누적인원 입력 (관리자)</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>누적인원 입력</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans KR', Arial, sans-serif; margin: 24px; }
-    h1 { font-size: 1.4rem; margin: 0 0 12px; }
-    form { display:grid; gap:12px; max-width: 420px; }
-    label { font-weight:600; }
-    input[type="date"], input[type="number"], input[type="password"] { padding:10px; border:1px solid #ddd; border-radius:10px; width:100%; }
-    .row { display:flex; gap:8px; flex-wrap:wrap; }
-    .btn { padding: 10px 14px; border:0; border-radius:10px; background:#111; color:#fff; cursor:pointer; }
-    .btn.secondary { background:#f5f5f5; color:#111; border:1px solid #ddd; text-decoration:none; display:inline-block; }
-    .muted { color:#777; font-size:0.9rem; }
-    #formArea { display:none; margin-top:20px; }
+    body{background:#0b1020;color:#e8ecf1;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Apple SD Gothic Neo,Noto Sans KR,sans-serif;margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100vh}
+    .card{background:#0f1630;border:1px solid #1f2a44;border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+    h1{margin-top:0;font-size:20px}
+    label{display:block;margin-top:14px;font-size:14px;color:#9aa6b2}
+    input{width:100%;padding:10px;margin-top:6px;border:1px solid #2a375a;border-radius:10px;background:#0e1733;color:#fff;box-sizing:border-box}
+    button{margin-top:18px;padding:12px;width:100%;background:#3aa3ff;border:none;border-radius:10px;color:#fff;font-weight:600;cursor:pointer}
+    button:active{transform:translateY(1px)}
+    .note{margin-top:12px;font-size:13px;color:#9aa6b2}
+    .msg{margin-top:10px;font-size:14px}
+    .ok{color:#7ed3ff}
+    .err{color:#ff9aa2}
   </style>
 </head>
 <body>
-  <h1>누적인원 입력 (관리자 전용)</h1>
-
-  <div id="loginArea">
-    <label for="pw">비밀번호</label>
-    <input id="pw" type="password" placeholder="비밀번호" />
-    <button class="btn" id="pwBtn">확인</button>
-    <p class="muted">※ 접근 제한됨. 올바른 비밀번호를 입력해야 합니다.</p>
-  </div>
-
-  <div id="formArea">
+  <div class="card">
+    <h1>누적인원 입력</h1>
     <form id="f">
-      <div>
-        <label for="date">날짜</label>
-        <input id="date" name="date" type="date" required />
-      </div>
-      <div>
-        <label for="count">인원</label>
-        <input id="count" name="count" type="number" inputmode="numeric" min="1" step="1" placeholder="예: 1234" required />
-        <div class="muted">음수, 소수 입력 불가. 같은 날짜는 시트에 여러 행으로 추가되며 조회 화면에서는 마지막 값만 반영됩니다.</div>
-      </div>
-      <div class="row">
-        <button class="btn" type="submit" id="submitBtn">입력</button>
-        <a class="btn secondary" href="index.html">현황 보기</a>
-      </div>
-      <p class="muted" id="hint">저장 후 index 페이지에서 자동 반영됩니다.</p>
+      <label>날짜(YYYY-MM-DD)<br/>
+        <input type="date" name="date" required/>
+      </label>
+      <label>누적인원<br/>
+        <input type="number" name="count" min="1" required/>
+      </label>
+      <button type="submit">제출</button>
     </form>
+    <p class="note">같은 날짜 입력 시 마지막 값으로 반영됩니다 (Last Write Wins).</p>
+    <div id="msg" class="msg"></div>
   </div>
 
 <script>
-const PASSWORD = "6208";
-// 실제 배포된 Apps Script 웹앱 주소
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzbCLNnYPzCEdKbWRxQUg-DlV0LfqF5TaOFMiFYb3e5fXuW05mbpTOIZQnwNv9L1pMpgA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRj6D0T-LgIYAFLW0l6Zs4xaXr-kckuC-9OdgWvDJgxg9tV2_B4MhnVjv_mtnM0r8KYw/exec";
 
-document.getElementById('pwBtn').addEventListener('click', () => {
-  if (document.getElementById('pw').value.trim() === PASSWORD) {
-    document.getElementById('loginArea').style.display = 'none';
-    document.getElementById('formArea').style.display = 'block';
-  } else { alert('비밀번호가 올바르지 않습니다.'); }
-});
-
-function sanitizeInt(v){
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
-}
-
-document.getElementById('f').addEventListener('submit', async (e) => {
+document.getElementById('f').addEventListener('submit', async e=>{
   e.preventDefault();
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = true; btn.textContent = '전송 중...';
-
-  const date = document.getElementById('date').value;
-  const count = sanitizeInt(document.getElementById('count').value);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || count === null) {
-    alert('입력 확인');
-    btn.disabled = false; btn.textContent = '입력';
-    return;
-  }
-
+  const fd = new FormData(e.target);
+  const params = new URLSearchParams(fd);
+  const msg = document.getElementById('msg');
+  msg.textContent = '전송 중…';
+  msg.className = 'msg';
   try {
-    const body = new URLSearchParams({ date, count: String(count) });
-    const res = await fetch(SCRIPT_URL, { method: 'POST', body });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    alert('입력 완료');
-    location.href = 'index.html';
-  } catch (err) {
-    alert('저장 오류: ' + err.message);
-  } finally {
-    btn.disabled = false; btn.textContent = '입력';
+    const res = await fetch(SCRIPT_URL, {method:'POST', body:params});
+    const txt = await res.text();
+    if (res.ok && txt.trim()==='ok') {
+      msg.textContent = '저장 성공';
+      msg.className = 'msg ok';
+      e.target.reset();
+    } else {
+      msg.textContent = '실패: ' + txt;
+      msg.className = 'msg err';
+    }
+  } catch(err){
+    msg.textContent = '에러: ' + err.message;
+    msg.className = 'msg err';
   }
 });
 </script>
