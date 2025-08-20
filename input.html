@@ -37,13 +37,13 @@
       <div>
         <label for="count">인원</label>
         <input id="count" name="count" type="number" inputmode="numeric" min="1" step="1" placeholder="예: 1234" required />
-        <div class="muted">음수, 소수 입력 불가. 같은 날짜는 시트에 행으로 추가됩니다.</div>
+        <div class="muted">음수, 소수 입력 불가. 같은 날짜는 시트에 행으로 추가됩니다. 조회 화면은 마지막 입력값으로 표시됩니다.</div>
       </div>
       <div class="row">
         <button class="btn" type="submit" id="submitBtn">입력</button>
         <a class="btn secondary" href="index.html">현황 보기</a>
       </div>
-      <p class="muted" id="hint">저장 후 index 페이지에서 자동 합산되어 표시됩니다.</p>
+      <p class="muted" id="hint">저장 후 index 페이지에서 같은 날짜는 마지막 입력값만 반영됩니다.</p>
     </form>
   </div>
 

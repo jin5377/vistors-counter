@@ -80,7 +80,7 @@
     </section>
 
     <footer class="footer">
-      <div>입력은 <code>input.html</code>(관리자 전용)에서 수행. 같은 날짜는 자동 합산 표기에 반영.</div>
+      <div>입력은 <code>input.html</code>(관리자 전용)에서 수행. 같은 날짜는 마지막 입력값으로 반영(LWW).</div>
       <div id="lastUpdated">-</div>
     </footer>
   </div>
@@ -107,8 +107,9 @@ function normalizeRows(arr){
 }
 
 function aggregateByDate(rows){
+  // 마지막 입력 우선(LWW). 같은 날짜가 여러 번 있으면 마지막 행의 값으로 대체
   const map = new Map();
-  for (const r of rows) map.set(r.date, (map.get(r.date)||0) + r.count);
+  for (const r of rows) map.set(r.date, r.count); // overwrite keeps last
   return Array.from(map.entries()).sort((a,b) => a[0].localeCompare(b[0]));
 }
 
@@ -117,9 +118,10 @@ async function draw(){
     const raw = await fetchSheet();
     const rows = normalizeRows(raw);
     const agg = aggregateByDate(rows);
-    const total = rows.reduce((s,r)=>s+r.count,0);
-    const remain = Math.max(TARGET-total,0);
-    const rate = Math.max(Math.min((total/TARGET)*100,100),0);
+    const lastAgg = aggregateByDate(rows);
+    const total = lastAgg.reduce((s, [d, c]) => s + c, 0);
+    const remain = Math.max(TARGET - total, 0);
+    const rate = Math.max(Math.min((total / TARGET) * 100, 100), 0);
 
     // KPI
     document.getElementById('cum').textContent = fmt(total) + ' 명';
@@ -132,7 +134,7 @@ async function draw(){
     // 표
     const tbody = document.querySelector('#tbl tbody');
     tbody.innerHTML = '';
-    for (const [date, cnt] of agg){
+    for (const [date, cnt] of lastAgg){
       const tr = document.createElement('tr');
       const td1 = document.createElement('td'); td1.textContent = date;
       const td2 = document.createElement('td'); td2.textContent = fmt(cnt);
