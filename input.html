@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -37,18 +36,19 @@
       <div>
         <label for="count">인원</label>
         <input id="count" name="count" type="number" inputmode="numeric" min="1" step="1" placeholder="예: 1234" required />
-        <div class="muted">음수, 소수 입력 불가. 같은 날짜는 시트에 행으로 추가됩니다. 조회 화면은 마지막 입력값으로 표시됩니다.</div>
+        <div class="muted">음수, 소수 입력 불가. 같은 날짜는 시트에 여러 행으로 추가되며 조회 화면에서는 마지막 값만 반영됩니다.</div>
       </div>
       <div class="row">
         <button class="btn" type="submit" id="submitBtn">입력</button>
         <a class="btn secondary" href="index.html">현황 보기</a>
       </div>
-      <p class="muted" id="hint">저장 후 index 페이지에서 같은 날짜는 마지막 입력값만 반영됩니다.</p>
+      <p class="muted" id="hint">저장 후 index 페이지에서 자동 반영됩니다.</p>
     </form>
   </div>
 
 <script>
 const PASSWORD = "6208";
+// 실제 배포된 Apps Script 웹앱 주소
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzs-J3ZVaLUGCh-Xl9h9ChrrOACVZHFsBz61SaZ2WmNfqG6gNEBkIYhWx3AKp5-Rx8XiA/exec";
 
 document.getElementById('pwBtn').addEventListener('click', () => {
@@ -58,7 +58,10 @@ document.getElementById('pwBtn').addEventListener('click', () => {
   } else { alert('비밀번호가 올바르지 않습니다.'); }
 });
 
-function sanitizeInt(v){const n=Number(v);return Number.isFinite(n)&&n>0?Math.round(n):null;}
+function sanitizeInt(v){
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
 
 document.getElementById('f').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -67,11 +70,15 @@ document.getElementById('f').addEventListener('submit', async (e) => {
 
   const date = document.getElementById('date').value;
   const count = sanitizeInt(document.getElementById('count').value);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || count===null) { alert('입력 확인'); btn.disabled=false; btn.textContent='입력'; return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || count === null) {
+    alert('입력 확인');
+    btn.disabled = false; btn.textContent = '입력';
+    return;
+  }
 
   try {
     const body = new URLSearchParams({ date, count: String(count) });
-    const res = await fetch(SCRIPT_URL + '?t=' + Date.now(), { method: 'POST', body }); // 헤더 지정하지 않음
+    const res = await fetch(SCRIPT_URL, { method: 'POST', body });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     alert('입력 완료');
     location.href = 'index.html';
@@ -81,7 +88,6 @@ document.getElementById('f').addEventListener('submit', async (e) => {
     btn.disabled = false; btn.textContent = '입력';
   }
 });
-
 </script>
 </body>
 </html>
