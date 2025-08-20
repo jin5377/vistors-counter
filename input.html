@@ -36,7 +36,17 @@
 
         <div>
           <label for="count">당일 입장 인원(일일 증가분)</label>
-          <input type="number" id="count" name="count" inputmode="numeric" step="1" min="1" required placeholder="예: 1032"/>
+          <input
+            type="number"
+            id="count"
+            name="count"
+            inputmode="numeric"
+            step="1"
+            min="1"
+            required
+            placeholder="예: 1032"
+            pattern="\d+"
+          />
         </div>
 
         <div>
@@ -74,16 +84,19 @@ function kstToday(){
 }
 
 function sanitizeInt(v){
-  const s = String(v).replace(/[,\s]/g,'');
-  const n = Number(s);
-  return Number.isFinite(n) ? Math.floor(n) : NaN;
+  const raw = String(v).replace(/[\s,]/g,'');  // 공백·쉼표 제거
+  if(!/^\d+$/.test(raw)) return NaN;          // 숫자만 허용(지수/부호/소수점 불가)
+  const n = Number(raw);
+  return Number.isSafeInteger(n) ? n : NaN;
 }
 
 function validate(date, count, maxDate){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '날짜 형식 오류';
   if(date > maxDate) return '미래 일자 불가';
   const n = sanitizeInt(count);
-  if(!Number.isFinite(n) || n < 1) return '인원은 1 이상';
+  if(!Number.isFinite(n) || n < 1) return '인원은 1 이상 정수';
+  const MAX = 200000; // 필요 시 조정
+  if(n > MAX) return `인원은 ${MAX.toLocaleString()} 이하`;
   return null;
 }
 
@@ -126,7 +139,12 @@ async function submit(e){
       throw new Error('오프라인 상태');
     }
 
-    const res = await fetch(SCRIPT_URL, { method:'POST', body: payload, signal: ac.signal });
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: payload,
+      signal: ac.signal
+    });
     clearTimeout(t);
     const text = await res.text();
 
@@ -153,7 +171,7 @@ setMaxDateToday();
 form.addEventListener('submit', submit);
 btn.addEventListener('click', submit);
 
-// 빠른 입력 편의: 숫자 입력에서 Enter 시 제출
+// 빠른 입력: 숫자 입력에서 Enter 시 제출
 $('#count').addEventListener('keydown', (ev)=>{ if(ev.key==='Enter'){ submit(ev); }});
 </script>
 </body>
