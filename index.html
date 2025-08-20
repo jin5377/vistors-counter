@@ -82,6 +82,7 @@
 
 <script>
 const TARGET = 8000000;
+// 본인 스크립트 URL로 교체
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzhvDQtWL5S1WreuhPJiw7ODnv0KamWZHGVHBU0gsHInGkgPmBMpBQLv4J55q4CDT6qTQ/exec";
 
 function fmt(n){ return Number(n||0).toLocaleString('ko-KR'); }
@@ -91,14 +92,22 @@ async function fetchSheet() {
   if (!res.ok) throw new Error('시트 요청 실패 ' + res.status);
   const txt = await res.text();
   try {
-    return JSON.parse(txt); // [["날짜","인원"],["2025-08-20","100"], ...]
+    return JSON.parse(txt);
   } catch (e) {
     throw new Error('JSON 파싱 실패: ' + e.message);
   }
 }
 
+// 응답이 [ ['날짜','인원'], ... ] 또는 [ ['2025-08-20', 100], ... ] 모두 처리
 function normalizeRows(arr){
-  return arr.slice(1)
+  if (!Array.isArray(arr)) return [];
+  let start = 0;
+  if (arr.length && Array.isArray(arr[0])) {
+    const h0 = String(arr[0][0] ?? '').trim();
+    const h1 = String(arr[0][1] ?? '').trim();
+    if (h0 === '날짜' && h1 === '인원') start = 1;
+  }
+  return arr.slice(start)
     .map(r => ({ date: String(r[0]||'').slice(0,10), count: Number(r[1]||0) }))
     .filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r.date) && Number.isFinite(r.count) && r.count>0);
 }
@@ -131,7 +140,7 @@ async function draw(){
     tbody.innerHTML = '';
     for (const [date, cnt] of lastAgg){
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${{date}}</td><td>${{fmt(cnt)}}</td>`;
+      tr.innerHTML = `<td>${date}</td><td>${fmt(cnt)}</td>`;
       tbody.appendChild(tr);
     }
 
